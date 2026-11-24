@@ -64,13 +64,13 @@ footer{text-align:center;color:#aaa;font-size:10px;letter-spacing:.12em;margin-t
 </header>
 
 <section id="setup" class="panel">
- <div class="row"><h2>01 — CANDIDATES</h2><span class="muted" id="count">0 / 64人</span></div>
- <p class="muted">好きな人の写真を64人分登録してね。写真はこのブラウザ内に保存され、外部には送信されません。</p>
+ <div class="row"><h2>01 — CANDIDATES</h2><span class="muted" id="count">0 / 200人</span></div>
+ <p class="muted">好きな人の写真を最大200人まで登録できるよ。写真はこのブラウザ内に保存され、外部には送信されません。</p>
  <label class="upload" for="files"><strong>＋ 写真をまとめて追加</strong><span class="muted">JPG・PNG・HEICなど（端末で対応する画像）</span></label>
  <input id="files" type="file" accept="image/*" multiple>
  <div id="people" class="people"></div>
- <div class="note" style="margin-top:14px">登録のコツ：写真は顔が見やすいものがおすすめ。名前はあとから変更できるよ。64人登録したら選考スタート！</div>
- <button id="start" class="btn full" disabled>64人で選考をスタート</button>
+ <div class="note" style="margin-top:14px">登録のコツ：写真は顔が見やすいものがおすすめ。名前はあとから変更できるよ。4人以上、最大200人まで登録したら選考スタート！</div>
+ <button id="start" class="btn full" disabled>選考をスタート</button>
  <div class="center"><button id="clear" class="smallbtn">登録データをすべて削除</button></div>
 </section>
 
@@ -90,7 +90,7 @@ footer{text-align:center;color:#aaa;font-size:10px;letter-spacing:.12em;margin-t
   <p class="muted">あなたが選んだ、好き顔ランキング。</p>
  </div>
  <div id="resultGrid" class="result-grid"></div>
- <div class="note">ランキングは全3ラウンド・48回の選択結果で決定。64人全員が3回ずつ登場し、選ばれた回数が多い順に並びます。同点の場合は同点者内でランダムに順番を決めています。</div>
+ <div class="note">ランキングは全3ラウンドの選択結果で決定。登録した全員が3回ずつ登場し、選ばれた回数が多い順に並びます。同点の場合は同点者内でランダムに順番を決めています。</div>
  <button id="save" class="btn full">TOP9画像を保存する</button>
  <button id="again" class="btn secondary full">もう一度選考する</button>
  <button id="back" class="smallbtn full">候補者を編集する</button>
@@ -111,8 +111,8 @@ function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2
 function shuffle(a){a=[...a];for(let i=a.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
 function escapeHTML(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 async function renderPeople(){
- candidates=await allCandidates();$('count').textContent=`${candidates.length} / 64人`;
- $('start').disabled=candidates.length!==64;
+ candidates=await allCandidates();$('count').textContent=`${candidates.length} / 200人`;
+ $('start').disabled=candidates.length<4 || candidates.length>200;
  $('people').innerHTML='';
  candidates.sort((a,b)=>a.created-b.created).forEach((p,i)=>{
   const d=document.createElement('div');d.className='person';
@@ -124,7 +124,7 @@ async function renderPeople(){
 }
 $('files').addEventListener('change',async e=>{
  const files=[...e.target.files].filter(f=>f.type.startsWith('image/'));
- if(candidates.length+files.length>64){alert(`登録できるのは64人までだよ。あと${64-candidates.length}人登録できます。`);e.target.value='';return}
+ if(candidates.length+files.length>200){alert(`登録できるのは200人までだよ。あと${200-candidates.length}人登録できます。`);e.target.value='';return}
  for(const f of files){
   const data=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(f)});
   const p={id:uid(),name:f.name.replace(/\.[^.]+$/,'').slice(0,40)||'名前未設定',data,created:Date.now()+Math.random()};
@@ -134,14 +134,14 @@ $('files').addEventListener('change',async e=>{
 });
 function show(id){['setup','game','done'].forEach(x=>$(x).classList.toggle('hidden',x!==id))}
 function makeRounds(){
- // 3 rounds; each round partitions all 64 people into 16 groups of four.
+ // 3 rounds; each round partitions all registered people into groups of up to four.
  rounds=[];
  for(let r=0;r<3;r++){const a=shuffle(candidates);const groups=[];for(let i=0;i<a.length;i+=4)groups.push(a.slice(i,i+4));rounds.push(groups)}
  scores=Object.fromEntries(candidates.map(p=>[p.id,0]));round=0;group=0;
 }
 function startGame(){makeRounds();show('game');renderGame()}
 function renderGame(){
- const total=48, done=round*16+group;
+ const total=rounds.reduce((sum,r)=>sum+r.length,0); const done=rounds.slice(0,round).reduce((sum,r)=>sum+r.length,0)+group;
  $('roundLabel').textContent=`ROUND ${round+1} / 3`;
  $('progressText').textContent=`${done+1} / ${total} 選択`;
  $('progressBar').style.width=`${done/total*100}%`;
@@ -155,7 +155,7 @@ function renderGame(){
 function choose(p){
  scores[p.id]++;
  group++;
- if(group>=16){round++;group=0}
+ if(group>=rounds[round].length){round++;group=0}
  if(round>=3){finish()}else{renderGame()}
 }
 function finish(){
